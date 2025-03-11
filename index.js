@@ -2,7 +2,7 @@ const path = require('path');
 const core = require('@actions/core');
 const tmp = require('tmp');
 const fs = require('fs');
-const {ECS} = require('@aws-sdk/client-ecs');
+const { ECS } = require('@aws-sdk/client-ecs');
 
 // Attributes that are returned by DescribeTaskDefinition, but are not valid RegisterTaskDefinition inputs
 const IGNORED_TASK_DEFINITION_ATTRIBUTES = [
@@ -22,7 +22,7 @@ function removeIgnoredAttributes(taskDef) {
 
   // Modifications are made to the new object
   IGNORED_TASK_DEFINITION_ATTRIBUTES.forEach(attr => {
-      delete cleanTaskDef[attr];
+    delete cleanTaskDef[attr];
   });
 
   return cleanTaskDef;  // Returns a completely new object
@@ -40,13 +40,15 @@ async function run() {
     const imageURI = core.getInput('image', { required: true });
     const environmentVariables = core.getInput('environment-variables', { required: false });
     const envFiles = core.getInput('env-files', { required: false });
+    const version = core.getInput('version', { required: false });
+    const githubRepo = core.getInput('github-repo', { required: false });
 
     const logConfigurationLogDriver = core.getInput("log-configuration-log-driver", { required: false });
     const logConfigurationOptions = core.getInput("log-configuration-options", { required: false });
     const dockerLabels = core.getInput('docker-labels', { required: false });
     const command = core.getInput('command', { required: false });
 
-    //New inputs to fetch task definition 
+    //New inputs to fetch task definition
     const taskDefinitionArn = core.getInput('task-definition-arn', { required: false }) || undefined;
     const taskDefinitionFamily = core.getInput('task-definition-family', { required: false }) || undefined;
     const taskDefinitionRevision = Number(core.getInput('task-definition-revision', { required: false })) || null;
@@ -56,11 +58,11 @@ async function run() {
     let taskDefContents;
     let describeTaskDefResponse;
     let params;
-    
+
     if (taskDefinitionFile) {
       core.info("Task definition file will be used.");
       taskDefPath = path.isAbsolute(taskDefinitionFile) ?
-        taskDefinitionFile : 
+        taskDefinitionFile :
         path.join(process.env.GITHUB_WORKSPACE, taskDefinitionFile);
       if (!fs.existsSync(taskDefPath)) {
         throw new Error(`Task definition file does not exist: ${taskDefinitionFile}`);
@@ -69,13 +71,13 @@ async function run() {
     } else if (taskDefinitionArn || taskDefinitionFamily || taskDefinitionRevision) {
       if (taskDefinitionArn) {
         core.info("The task definition arn will be used to fetch task definition");
-        params = {taskDefinition: taskDefinitionArn, include: ['TAGS']};
+        params = { taskDefinition: taskDefinitionArn, include: ['TAGS'] };
       } else if (taskDefinitionFamily && taskDefinitionRevision) {
         core.info("The specified revision of the task definition family will be used to fetch task definition");
-        params = {taskDefinition: `${taskDefinitionFamily}:${taskDefinitionRevision}`, include: ['TAGS'] };
+        params = { taskDefinition: `${taskDefinitionFamily}:${taskDefinitionRevision}`, include: ['TAGS'] };
       } else if (taskDefinitionFamily) {
         core.info("The latest revision of the task definition family will be used to fetch task definition");
-        params = {taskDefinition: taskDefinitionFamily, include: ['TAGS']};
+        params = { taskDefinition: taskDefinitionFamily, include: ['TAGS'] };
       } else if (taskDefinitionRevision) {
         core.setFailed("You can't fetch task definition with just revision: Either use task definition file, arn or family name");
       } else {
@@ -86,7 +88,7 @@ async function run() {
         describeTaskDefResponse = await ecs.describeTaskDefinition(params);
       } catch (error) {
         core.setFailed("Failed to describe task definition in ECS: " + error.message);
-        throw(error); 
+        throw (error);
       }
       taskDefContents = describeTaskDefResponse.taskDefinition;
       // merge tags into taskDefinition
@@ -96,6 +98,9 @@ async function run() {
     } else {
       throw new Error("Either task definition, task definition arn or task definition family must be provided");
     }
+
+    // Add repo tag to task definition
+    taskDefContents.tags['CEB_APP_REPO'] = githubRepo;
 
     // Insert the image URI
     if (!Array.isArray(taskDefContents.containerDefinitions)) {
@@ -179,9 +184,9 @@ async function run() {
           const separatorIdx = trimmedLine.indexOf("=");
           // If there's nowhere to split
           if (separatorIdx === -1) {
-              throw new Error(
-                `Cannot parse the secret '${trimmedLine}'. Secret pairs must be of the form NAME=valueFrom, 
-                where valueFrom is an arn from parameter store or secrets manager. See AWS documentation for more information: 
+            throw new Error(
+              `Cannot parse the secret '${trimmedLine}'. Secret pairs must be of the form NAME=valueFrom,
+                where valueFrom is an arn from parameter store or secrets manager. See AWS documentation for more information:
                 https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html.`);
           }
           // Build object
@@ -200,6 +205,20 @@ async function run() {
             containerDef.secrets.push(secret);
           }
         })
+      }
+    }
+
+    // Update with otel version
+    if (version) {
+      const variableDef = containerDef.environment.find((e) => e.name == 'OTEL_RESOURCE_ATTRIBUTES');
+
+      if (variableDef) {
+        variableDef.value = `${variableDef.value},service.version=${version}`;
+      } else {
+        containerDef.environment.push({
+          name: 'OTEL_RESOURCE_ATTRIBUTES',
+          value: `service.version=${version}`
+        });
       }
     }
 
@@ -236,7 +255,7 @@ async function run() {
         // Trim whitespace
         label = label.trim();
         if (label && label.length) {
-          if (label.indexOf("=") == -1 ) {
+          if (label.indexOf("=") == -1) {
             throw new Error(`Can't parse logConfiguration option ${label}. Must be in key=value format, one per line`);
           }
           const [key, value] = label.split("=");
