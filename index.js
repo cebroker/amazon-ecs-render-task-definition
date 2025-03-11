@@ -99,8 +99,15 @@ async function run() {
       throw new Error("Either task definition, task definition arn or task definition family must be provided");
     }
 
+    if (!taskDefContents.tags) {
+      taskDefContents.tags = []
+    }
+
     // Add repo tag to task definition
-    taskDefContents.tags['CEB_APP_REPO'] = githubRepo;
+    taskDefContents.tags.push({
+      key: 'CEB_APP_REPO',
+      value: githubRepo
+    })
 
     // Insert the image URI
     if (!Array.isArray(taskDefContents.containerDefinitions)) {
