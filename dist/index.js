@@ -47,7 +47,6 @@ async function run() {
     const environmentVariables = core.getInput('environment-variables', { required: false });
     const envFiles = core.getInput('env-files', { required: false });
     const version = core.getInput('version', { required: false });
-    const githubRepo = core.getInput('github-repo', { required: false });
 
     const logConfigurationLogDriver = core.getInput("log-configuration-log-driver", { required: false });
     const logConfigurationOptions = core.getInput("log-configuration-options", { required: false });
@@ -107,17 +106,6 @@ async function run() {
 
     if (!taskDefContents.tags) {
       taskDefContents.tags = []
-    }
-
-    // Add repo tag to task definition
-    const existingTag = taskDefContents.tags.find(tag => tag.key === 'CEB_APP_REPO');
-    if (existingTag) {
-      existingTag.value = githubRepo;
-    } else {
-      taskDefContents.tags.push({
-        key: 'CEB_APP_REPO',
-        value: githubRepo
-      });
     }
 
     // Insert the image URI

@@ -46,9 +46,6 @@ inputs:
   version:
     description: 'Image tag version to inject as env variable for OTEL'
     required: false
-  github-repo:
-    description: 'Repo url to commit sha or version for use in ECR Task Definition tag'
-    required: false
 outputs:
   task-definition:
     description: 'The path to the rendered task definition file'
