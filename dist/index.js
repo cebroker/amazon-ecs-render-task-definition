@@ -226,7 +226,12 @@ async function run() {
       const variableDef = containerDef.environment.find((e) => e.name == 'OTEL_RESOURCE_ATTRIBUTES');
 
       if (variableDef) {
-        variableDef.value = `${variableDef.value},service.version=${version}`;
+        variableDef.value = variableDef.value.split(',').map((attr) => {
+          if (attr.startsWith('service.version=')) {
+            return `service.version=${version}`;
+          }
+          return attr;
+        }).join(',');
       } else {
         containerDef.environment.push({
           name: 'OTEL_RESOURCE_ATTRIBUTES',
