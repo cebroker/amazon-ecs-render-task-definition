@@ -219,17 +219,20 @@ async function run() {
       const variableDef = containerDef.environment.find((e) => e.name == 'OTEL_RESOURCE_ATTRIBUTES');
 
       if (variableDef) {
-        variableDef.value = variableDef.value.split(',').map((attr) => {
-          if (attr.startsWith('service.version=')) {
-            return `service.version=${version}`;
-          }
-          return attr;
-        }).join(',');
-      } else {
-        containerDef.environment.push({
-          name: 'OTEL_RESOURCE_ATTRIBUTES',
-          value: `service.version=${version}`
-        });
+        const versionAttribute = `service.version=${version}`;
+
+        // If we have set it before then we need to replace
+        if (variableDef.value.includes('service.version=')) {
+          variableDef.value = variableDef.value.split(',').map((attr) => {
+            if (attr.startsWith('service.version=')) {
+              return versionAttribute;
+            }
+            return attr;
+          }).join(',');
+        } else {
+          // First time the version is being set
+          variableDef.value += `,${versionAttribute}`;
+        }
       }
     }
 
