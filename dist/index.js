@@ -110,10 +110,15 @@ async function run() {
     }
 
     // Add repo tag to task definition
-    taskDefContents.tags.push({
-      key: 'CEB_APP_REPO',
-      value: githubRepo
-    })
+    const existingTag = taskDefContents.tags.find(tag => tag.key === 'CEB_APP_REPO');
+    if (existingTag) {
+      existingTag.value = githubRepo;
+    } else {
+      taskDefContents.tags.push({
+        key: 'CEB_APP_REPO',
+        value: githubRepo
+      });
+    }
 
     // Insert the image URI
     if (!Array.isArray(taskDefContents.containerDefinitions)) {
